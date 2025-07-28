@@ -1,15 +1,16 @@
 package com.socialmedia.togetherly.service.impl;
 
 import com.socialmedia.togetherly.Config.AppProperties;
+import com.socialmedia.togetherly.dto.request.ForgotPasswordRequest;
 import com.socialmedia.togetherly.dto.request.LoginRequest;
 import com.socialmedia.togetherly.dto.request.RegisterRequest;
+import com.socialmedia.togetherly.dto.request.ResetPasswordRequest;
 import com.socialmedia.togetherly.dto.response.LoginResponse;
 import com.socialmedia.togetherly.exception.BadRequestException;
 import com.socialmedia.togetherly.exception.RoleNotFoundException;
-import com.socialmedia.togetherly.model.ERole;
-import com.socialmedia.togetherly.model.Role;
-import com.socialmedia.togetherly.model.User;
-import com.socialmedia.togetherly.model.VerificationToken;
+import com.socialmedia.togetherly.exception.UserNotFoundException;
+import com.socialmedia.togetherly.model.*;
+import com.socialmedia.togetherly.repositories.PasswordResetTokenRepository;
 import com.socialmedia.togetherly.repositories.RoleRepository;
 import com.socialmedia.togetherly.repositories.UserRepository;
 import com.socialmedia.togetherly.repositories.VerificationTokenRepository;
@@ -46,8 +47,9 @@ public class AuthServiceImpl implements AuthService {
     private final VerificationTokenRepository tokenRepository;
     private final AppProperties appProperties;
     private final EmailService emailService;
+    private final PasswordResetTokenRepository passwordResetTokenRepository;
 
-    public AuthServiceImpl(UserRepository userRepository, RoleRepository roleRepository, PasswordEncoder passwordEncoder, AuthenticationManager authenticationManager, UserDetailsImpl userDetails, JwtUtil jwtUtil, VerificationTokenRepository tokenRepository, AppProperties appProperties, EmailService emailService) {
+    public AuthServiceImpl(UserRepository userRepository, RoleRepository roleRepository, PasswordEncoder passwordEncoder, AuthenticationManager authenticationManager, UserDetailsImpl userDetails, JwtUtil jwtUtil, VerificationTokenRepository tokenRepository, AppProperties appProperties, EmailService emailService, PasswordResetTokenRepository passwordResetTokenRepository) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.passwordEncoder = passwordEncoder;
@@ -57,6 +59,7 @@ public class AuthServiceImpl implements AuthService {
         this.tokenRepository = tokenRepository;
         this.appProperties = appProperties;
         this.emailService = emailService;
+        this.passwordResetTokenRepository = passwordResetTokenRepository;
     }
 
     @Override
@@ -131,6 +134,71 @@ public class AuthServiceImpl implements AuthService {
         }
     }
 
+
+    @Transactional
+    public void verifyEmail(String token) {
+        logger.info("Verifying token from DB...");
+        VerificationToken verificationToken = tokenRepository.findByToken(token)
+                .orElseThrow(() -> new BadRequestException("Invalid token"));
+
+        User user = verificationToken.getUser();
+        if (user.isEnabled()) {
+            throw new BadRequestException("Email already verified");
+        }
+
+        logger.info("Verification token validated. Activating user account.");
+        user.setEnabled(true);
+        user.setActive(true);
+        // No need to explicitly call userRepository.save(user) if user is a managed entity
+        logger.info("Verification token deleted from the database.");
+        tokenRepository.delete(verificationToken);
+    }
+
+    @Override
+    public void forgotPassword(ForgotPasswordRequest forgotPasswordRequest) {
+        User user = userRepository.findByEmail(forgotPasswordRequest.getEmail())
+                .orElseThrow(() -> new UserNotFoundException("User not found with Email: " + forgotPasswordRequest.getEmail()));
+
+        logger.info("Creating Password reset token and saving into db...");
+        String forgotPasswordToken = UUID.randomUUID().toString();
+
+        PasswordResetToken passwordResetToken = PasswordResetToken.builder()
+                .id(UUID.randomUUID().toString())
+                .user(user)
+                .expiryDate(LocalDateTime.now().plusHours(1))
+                .token(forgotPasswordToken)
+                .build();
+
+        passwordResetTokenRepository.save(passwordResetToken);
+
+        logger.info("Token saved successfully into DB!!");
+
+        String forgotPasswordTokenUrl = appProperties.getFrontend().getBaseUrl() + "/reset-password?token=" + forgotPasswordToken;
+
+        String emailBody = "<p>Hello " + user.getFullName() + ",</p>" +
+                "<p>We received a request to reset your password.</p>" +
+                "<p>You can reset your password by clicking the link below:</p>" +
+                "<p><a href=\"" + forgotPasswordTokenUrl + "\">Reset Password</a></p>" +
+                "<p>If you did not request a password reset, please ignore this email.</p>" +
+                "<p>Best regards,<br>Your Company Team</p>";
+
+
+        emailService.sendHtmlEmail(user.getEmail(), "Verify your email", emailBody);
+    }
+
+    @Transactional
+    @Override
+    public void resetPassword(ResetPasswordRequest resetPasswordRequest) {
+        PasswordResetToken passwordResetToken = passwordResetTokenRepository.findByToken(resetPasswordRequest.getToken())
+                .orElseThrow(() -> new BadRequestException("Invalid token"));
+
+        User user = passwordResetToken.getUser();
+        user.setPassword(passwordEncoder.encode(resetPasswordRequest.getNewPassword()));
+        userRepository.save(user);
+        passwordResetTokenRepository.delete(passwordResetToken);
+    }
+
+
     private void doAuthenticate(String username, String password) {
         UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(username, password);
 
@@ -168,24 +236,5 @@ public class AuthServiceImpl implements AuthService {
 
         emailService.sendHtmlEmail(user.getEmail(), "Verify your email", emailBody);
     }
-
-    @Transactional
-    public void verifyEmail(String token) {
-        logger.info("Verifying token from DB...");
-        VerificationToken verificationToken = tokenRepository.findByToken(token)
-                .orElseThrow(() -> new BadRequestException("Invalid token"));
-
-        User user = verificationToken.getUser();
-        if (user.isEnabled()) {
-            throw new BadRequestException("Email already verified");
-        }
-
-        logger.info("Verification token validated. Activating user account.");
-        user.setEnabled(true);
-        // No need to explicitly call userRepository.save(user) if user is a managed entity
-        logger.info("Verification token deleted from the database.");
-        tokenRepository.delete(verificationToken);
-    }
-
 
 }
