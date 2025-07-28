@@ -1,9 +1,6 @@
 package com.socialmedia.togetherly.model;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
+import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -11,6 +8,7 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Entity
 @Data
@@ -32,7 +30,14 @@ public class User {
     private String profilePictureUrl;
     private boolean isActive = false;
     private boolean enabled = false;
-    private String role;
+
+    @ManyToMany(fetch = FetchType.EAGER)
+    @JoinTable(name = "user_roles",
+            joinColumns = @JoinColumn(name = "USER_ID", referencedColumnName = "id"),
+            inverseJoinColumns = @JoinColumn(name = "ROLE_ID", referencedColumnName = "id"))
+    private List<Role> roles;
+
+
     @CreationTimestamp
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
