@@ -1,5 +1,6 @@
 package com.socialmedia.togetherly.exception.exceptionhandler;
 
+import com.socialmedia.togetherly.exception.BadRequestException;
 import com.socialmedia.togetherly.exception.UserAlreadyExistException;
 import com.socialmedia.togetherly.exception.UserNotFoundException;
 import com.socialmedia.togetherly.exception.response.ExceptionMessage;
@@ -21,13 +22,13 @@ public class RestResponseEntityExceptionHandler extends ResponseEntityExceptionH
         return message;
     }
 
-    @ExceptionHandler(Exception.class)
-    @ResponseBody
-    @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
-    public ExceptionMessage genericExceptionHandler(Exception exception) {
-        ExceptionMessage message = new ExceptionMessage(HttpStatus.INTERNAL_SERVER_ERROR, exception.getMessage());
-        return message;
-    }
+//    @ExceptionHandler(Exception.class)
+//    @ResponseBody
+//    @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
+//    public ExceptionMessage genericExceptionHandler(Exception exception) {
+//        ExceptionMessage message = new ExceptionMessage(HttpStatus.INTERNAL_SERVER_ERROR, exception.getMessage());
+//        return message;
+//    }
 
 
     @ExceptionHandler(UserAlreadyExistException.class)
@@ -35,6 +36,14 @@ public class RestResponseEntityExceptionHandler extends ResponseEntityExceptionH
     @ResponseStatus(HttpStatus.CONFLICT)
     public ExceptionMessage userAlreadyExistException(UserAlreadyExistException exception) {
         ExceptionMessage message = new ExceptionMessage(HttpStatus.CONFLICT, exception.getMessage());
+        return message;
+    }
+
+    @ExceptionHandler(BadRequestException.class)
+    @ResponseBody
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ExceptionMessage badRequestExceptino(BadRequestException exception) {
+        ExceptionMessage message = new ExceptionMessage(HttpStatus.BAD_REQUEST, exception.getMessage());
         return message;
     }
 

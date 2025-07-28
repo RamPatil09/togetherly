@@ -18,3 +18,18 @@ spring:
     properties:
       hibernate:
         format_sql: true
+
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ramp051346@gmail.com
+    password: tzox tjvl vphb iijh
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls.enable: true
+
+  app:
+    frontend:
+      base-url: http://localhost:8080

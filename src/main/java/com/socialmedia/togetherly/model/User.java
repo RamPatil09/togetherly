@@ -10,8 +10,12 @@ import org.hibernate.annotations.CreationTimestamp;
 import java.time.LocalDateTime;
 import java.util.List;
 
-@Entity
+import com.fasterxml.jackson.annotation.JsonManagedReference;
+import lombok.ToString;
+import lombok.EqualsAndHashCode;
+
 @Data
+@Entity
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
@@ -22,23 +26,34 @@ import java.util.List;
 public class User {
     @Id
     private String id;
+
     private String username;
+
     private String email;
+
     private String password;
+
     private String fullName;
+
     private String bio;
+
     private String profilePictureUrl;
+
     private boolean isActive = false;
+
     private boolean enabled = false;
 
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(name = "user_roles",
             joinColumns = @JoinColumn(name = "USER_ID", referencedColumnName = "id"),
             inverseJoinColumns = @JoinColumn(name = "ROLE_ID", referencedColumnName = "id"))
+    @JsonManagedReference
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     private List<Role> roles;
-
 
     @CreationTimestamp
     private LocalDateTime createdAt;
+
     private LocalDateTime updatedAt;
 }
